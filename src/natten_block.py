@@ -2,7 +2,8 @@ from torch import FloatTensor
 from torch.nn import Module, Linear
 from einops import rearrange
 
-import natten
+# import natten.functional import natten2dqk, natten2dav
+from src.natten_autograd import natten2dqk, natten2dav
 
 # Simplifed version of
 # Katherine Crowson's NeighborhoodSelfAttentionBlock, MIT license
@@ -20,9 +21,9 @@ class NattenBlock(Module):
     qkv = self.qkv_proj(x)
     q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh h w e", t=3, e=self.d_head)
     q = q / self.d_head**.5
-    qk = natten.functional.natten2dqk(q, k, self.kernel_size, 1)
+    qk = natten2dqk(q, k, self.kernel_size, 1)
     a = qk.softmax(dim=-1)
-    x = natten.functional.natten2dav(a, v, self.kernel_size, 1)
+    x = natten2dav(a, v, self.kernel_size, 1)
     x = rearrange(x, "n nh h w e -> n h w (nh e)")
     x = self.out_proj(x)
     return x

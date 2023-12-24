@@ -18,6 +18,11 @@ canvas_len=32
 x = torch.randn([1, canvas_len, canvas_len, d_model], device=device, dtype=dtype)
 
 with inference_mode():
-  out = natten_block(x)
-  out2 = hood_block(x)
-  pass
+  out_natt = natten_block(x)
+  out_hood = hood_block(x)
+# default rtol of allclose
+rtol=1e-5
+# this is actually a *wildly* generous atol. the default would normally be 1e-08.
+atol=5e-3
+assert out_natt.allclose(out_hood, rtol=1e-5, atol=5e-3), "assertion failure indicates implementations are not equivalent"
+print(f'NATTEN output matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')

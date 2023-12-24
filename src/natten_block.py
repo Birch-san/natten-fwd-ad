@@ -19,6 +19,7 @@ class NattenBlock(Module):
   def forward(self, x: FloatTensor) -> FloatTensor:
     qkv = self.qkv_proj(x)
     q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh h w e", t=3, e=self.d_head)
+    q = q / self.d_head**.5
     qk = natten.functional.natten2dqk(q, k, self.kernel_size, 1)
     a = qk.softmax(dim=-1)
     x = natten.functional.natten2dav(a, v, self.kernel_size, 1)

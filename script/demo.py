@@ -37,5 +37,8 @@ with fwAD.dual_level(), enable_grad(), sdp_kernel(enable_math=True, enable_flash
   out_natt_prime = fwAD.unpack_dual(out_natt).tangent
   out_hood = hood_block(dual_primal)
   out_hood_prime = fwAD.unpack_dual(out_hood).tangent
-  assert out_natt_prime.allclose(out_hood_prime, rtol=1e-5, atol=1e-3), "assertion failure indicates fwAD implementations are not equivalent"
+  # default rtol of allclose
+  rtol=1e-5
+  atol=1e-3
+  assert out_natt_prime.allclose(out_hood_prime, rtol=rtol, atol=atol), "assertion failure indicates fwAD implementations are not equivalent"
   print(f'NATTEN fwAD output matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')

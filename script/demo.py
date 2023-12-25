@@ -32,8 +32,10 @@ print(f'NATTEN output matched pure-PyTorch implementation to within atol={atol},
 
 tangent = torch.randn([batch, canvas_len, canvas_len, d_model], device=device, dtype=dtype)
 with fwAD.dual_level(), enable_grad(), sdp_kernel(enable_math=True, enable_flash=False, enable_mem_efficient=False):
-  dual_x = fwAD.make_dual(x, tangent)
-  # out_natt = natten_block(dual_x)
-  out_hood = hood_block(dual_x)
+  dual_primal = fwAD.make_dual(x, tangent)
+  out_natt = natten_block(dual_primal)
+  out_natt_prime = fwAD.unpack_dual(out_natt).tangent
+  out_hood = hood_block(dual_primal)
   out_hood_prime = fwAD.unpack_dual(out_hood).tangent
-  pass
+  assert out_natt_prime.allclose(out_hood_prime, rtol=1e-5, atol=1e-3), "assertion failure indicates fwAD implementations are not equivalent"
+  print(f'NATTEN fwAD output matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')

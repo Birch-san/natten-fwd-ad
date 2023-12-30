@@ -2,8 +2,8 @@ from torch import FloatTensor
 from torch.nn import Module, Linear
 from einops import rearrange
 
-# import natten.functional import natten2dqk, natten2dav
-from src.natten_autograd import natten2dqk, natten2dav
+from natten.functional import natten2dqk, natten2dav
+# from src.natten_autograd import natten2dqk, natten2dav
 
 # Simplifed version of
 # Katherine Crowson's NeighborhoodSelfAttentionBlock, MIT license

@@ -6,6 +6,13 @@
       "request": "launch",
       "module": "script.demo",
       "justMyCode": false
+    }, 
+    {
+      "name": "Python: Demo (nested)",
+      "type": "python",
+      "request": "launch",
+      "module": "script.demo_nested",
+      "justMyCode": false
     }
   ]
 }

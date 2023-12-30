@@ -1,13 +1,22 @@
 import torch
 from torch import FloatTensor, BoolTensor
+from torch.nested import nested_tensor
 from torch.nn import Module, Linear
 from torch.nn.functional import scaled_dot_product_attention
 from einops import rearrange
-from typing import NamedTuple
+from typing import NamedTuple, List
 
 class Dimensions(NamedTuple):
   height: int
   width: int
+
+class QKVMask(NamedTuple):
+  q: FloatTensor
+  k: FloatTensor
+  v: FloatTensor
+  h: int
+  w: int
+  mask: BoolTensor
 
 # by Katherine Crowson
 def make_neighbourhood_mask(kernel_size: Dimensions, canvas_size: Dimensions, flatten_to_1d=False, device="cpu") -> BoolTensor:
@@ -52,8 +61,8 @@ class NeighbourhoodAttnBlock(Module):
     self.kernel_size = kernel_size
     self.qkv_proj = Linear(d_model, d_model * 3, bias=False)
     self.out_proj = Linear(d_model, d_model, bias=False)
-
-  def forward(self, x: FloatTensor) -> FloatTensor:
+  
+  def _x_to_qkv_mask(self, x: FloatTensor) -> QKVMask:
     _, h, w, _ = x.shape
     qkv = self.qkv_proj(x)
     q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh (h w) e", t=3, e=self.d_head)
@@ -61,7 +70,29 @@ class NeighbourhoodAttnBlock(Module):
     canvas_size=Dimensions(h, w)
     mask: BoolTensor = make_neighbourhood_mask(kernel_size, canvas_size, flatten_to_1d=True, device=x.device)
     mask = mask.unsqueeze(0).unsqueeze(0)
-    x = scaled_dot_product_attention(q, k, v, attn_mask=mask)
+    return QKVMask(q, k, v, h, w, mask)
+  
+  def _attn_to_out(self, x: FloatTensor, h: int, w: int) -> FloatTensor:
     x = rearrange(x, "n nh (h w) e -> n h w (nh e)", h=h, w=w, e=self.d_head)
     x = self.out_proj(x)
+    return x
+
+  def forward(self, x: FloatTensor) -> FloatTensor:
+    if x.is_nested:
+      qkvms: List[QKVMask] = [self._x_to_qkv_mask(t) for t in x.unbind()]
+      q = nested_tensor([qkvm.q for qkvm in qkvms])
+      k = nested_tensor([qkvm.k for qkvm in qkvms])
+      v = nested_tensor([qkvm.v for qkvm in qkvms])
+      mask = nested_tensor([qkvm.mask for qkvm in qkvms])
+      hs: List[int] = [qkvm.h for qkvm in qkvms]
+      ws: List[int] = [qkvm.w for qkvm in qkvms]
+    else:
+      q, k, v, h, w, mask = self._x_to_qkv_mask(x)
+    # note: fails for nested tensors, because nested tensor mask is not supported
+    x = scaled_dot_product_attention(q, k, v, attn_mask=mask)
+    if x.is_nested:
+      outs: List[FloatTensor] = [self._attn_to_out(t, h, w) for t, h, w in zip(x.unbind(), hs, ws)]
+      x = nested_tensor(outs)
+    else:
+      x = self._attn_to_out(x, h, w)
     return x

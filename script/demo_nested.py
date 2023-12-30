@@ -1,6 +1,7 @@
 import torch
 from typing import List, Tuple
 from torch import inference_mode, FloatTensor
+from torch.nested import nested_tensor
 from src.natten_block import NattenBlock
 from src.hood_attn_block import NeighbourhoodAttnBlock
 
@@ -18,7 +19,6 @@ hood_block = NeighbourhoodAttnBlock(d_model, d_head=d_head, kernel_size=kernel_s
 canvas_len=32
 x = torch.randn([1, canvas_len, canvas_len, d_model], device=device, dtype=dtype)
 y = torch.randn([1, canvas_len*2, canvas_len*2, d_model], device=device, dtype=dtype)
-# s = torch.cat([x, y])
 
 # default rtol of allclose
 rtol=1e-5
@@ -33,10 +33,12 @@ with inference_mode():
     assert out_natt.allclose(out_hood, rtol=1e-5, atol=5e-3), "assertion failure indicates implementations are not equivalent"
   print('Sanity-check passed; NATTEN matches pure-PyTorch for non-nested tensors')
 
-  inputs_nest: FloatTensor = torch.nested.nested_tensor([x, y])
-  # fails because nested tensors need to be 3D
-  out_nest_natt: FloatTensor = natten_block(inputs_nest)
-  out_nest_hood: FloatTensor = hood_block(inputs_nest)
-  assert out_nest_natt.allclose(out_nest_hood, rtol=1e-5, atol=5e-3), "assertion failure indicates implementations are not equivalent"
+  inputs_nest: FloatTensor = nested_tensor([x, y])
+  outs_nest_natt: FloatTensor = natten_block(inputs_nest)
+  # pure-Pytorch sdp actually doesn't support nested tensors, so let's just nest the per-sample results we got earlier
+  for out_nest_natt, out_hood in zip(outs_nest_natt.unbind(), outs_hood):
+    assert out_nest_natt.allclose(out_hood, rtol=1e-5, atol=5e-3), "assertion failure indicates NATTEN nested result is not equivalent to pure-PyTorch per-sample results"
+  for out_nest_natt, out_natt in zip(outs_nest_natt.unbind(), outs_natt):
+    assert out_nest_natt.allclose(out_natt), "assertion failure indicates NATTEN nested mode results aren't self-consistent with non-nested"
 
 print(f'NATTEN output matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')

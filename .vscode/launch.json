@@ -6,6 +6,13 @@
       "request": "launch",
       "module": "script.demo",
       "justMyCode": false
+    },
+    {
+      "name": "Python: Demo registers",
+      "type": "python",
+      "request": "launch",
+      "module": "script.demo_registers",
+      "justMyCode": false
     }
   ]
 }

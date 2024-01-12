@@ -1,5 +1,5 @@
 import torch
-from torch import FloatTensor, BoolTensor, cat
+from torch import FloatTensor, BoolTensor, cat, baddbmm
 from torch.nn import Module, Linear
 from torch.nn.functional import scaled_dot_product_attention, linear
 from einops import rearrange
@@ -37,7 +37,7 @@ def make_neighbourhood_mask(kernel_size: Dimensions, canvas_size: Dimensions, fl
   return mask
 
 class NeighbourhoodAttnRegisterBlock(Module):
-  def __init__(self, d_model: int, d_head: int, kernel_size: int):
+  def __init__(self, d_model: int, d_head: int, kernel_size: int, use_sdp=True):
     """
     Pure-PyTorch implementation of neighbourhood attention.
     Uses global self-attention and a (very) complicated mask.
@@ -53,6 +53,8 @@ class NeighbourhoodAttnRegisterBlock(Module):
     self.d_model = d_model
     self.qkv_proj = Linear(d_model, d_model * 3, bias=True)
     self.out_proj = Linear(d_model, d_model, bias=True)
+    self.use_sdp = use_sdp
+    self.scale = d_head**-.5
 
   def forward(self, x: FloatTensor, registers: FloatTensor = None) -> FloatTensor:
     _, h, w, _ = x.shape
@@ -86,7 +88,20 @@ class NeighbourhoodAttnRegisterBlock(Module):
     mask_cat = cat([mask, mask_reg.expand(mask.size(0), -1)], dim=-1)
     # broadcast to all heads and batch items
     mask_cat = mask_cat.expand(1, 1, -1, -1)
-    x = scaled_dot_product_attention(q, k_cat, v_cat, attn_mask=mask_cat)
+
+    if self.use_sdp:
+      x = scaled_dot_product_attention(q, k_cat, v_cat, attn_mask=mask_cat)
+    else:
+      # batched matmul which fuses in the addition of the mask and the multiplication by scale factor
+      attn_sims = baddbmm(
+        (~mask_cat).flatten(end_dim=-3).to(q.dtype),
+        q.flatten(end_dim=-3),
+        k_cat.flatten(end_dim=-3).mT,
+        beta=-10_000,
+        alpha=self.scale,
+      ).unflatten(0, (-1, self.n_heads))
+      attn_probs = attn_sims.softmax(dim=-1)
+      x = attn_probs @ v_cat
     
     x = rearrange(x, "n nh (h w) e -> n h w (nh e)", h=h, w=w, e=self.d_head)
     x = self.out_proj(x)

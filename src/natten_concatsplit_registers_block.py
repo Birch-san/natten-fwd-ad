@@ -42,7 +42,7 @@ class NattenConcatSplitRegistersBlock(Module):
     a_neigh, a_reg = a.split_with_sizes((qk.size(-1), qk_reg.size(-1)), dim=-1)
     attn_neigh = natten2dav(a_neigh, v, self.kernel_size, 1)
     attn_reg = a_reg @ reg_v.unsqueeze(-3)
-    # is this right?
+    # btw you could fuse this addition into the matmul above, via baddbmm
     x = attn_neigh + attn_reg
     x = rearrange(x, "n nh h w e -> n h w (nh e)")
     x = self.out_proj(x)

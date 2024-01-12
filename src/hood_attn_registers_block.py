@@ -66,14 +66,17 @@ class NeighbourhoodAttnRegisterBlock(Module):
     reg_kv: FloatTensor = linear(registers, kv_proj_weight, kv_proj_bias)
     # permute head channels into a batch dim, and unbind k and v from the fused kv
     reg_k, reg_v = rearrange(reg_kv, "r (t nh e) -> t 1 nh r e", t=2, e=self.d_head)
+    # expand singleton batch dim to explicitly equal batch dim used in self-attn
+    reg_k, reg_v = (reg.expand(qkv.size(0), *reg.shape[1:]) for reg in (reg_k, reg_v))
+
     # construct an all-True mask that says "attend to all registers"
     mask_reg = reg_k.new_ones(reg_k.size(-2), dtype=torch.bool)
 
     q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh (h w) e", t=3, e=self.d_head)
 
     # concatenate registers along the sequence dimension
-    k_cat = cat([k, reg_k.expand(k.size(0), -1, -1, -1)], dim=-2)
-    v_cat = cat([v, reg_v.expand(v.size(0), -1, -1, -1)], dim=-2)
+    k_cat = cat([k, reg_k], dim=-2)
+    v_cat = cat([v, reg_v], dim=-2)
 
     # make a neighbourhood mask for x
     kernel_size=Dimensions(self.kernel_size, self.kernel_size)
@@ -83,7 +86,6 @@ class NeighbourhoodAttnRegisterBlock(Module):
     mask_cat = cat([mask, mask_reg.expand(mask.size(0), -1)], dim=-1)
     # broadcast to all heads and batch items
     mask_cat = mask_cat.expand(1, 1, -1, -1)
-
     x = scaled_dot_product_attention(q, k_cat, v_cat, attn_mask=mask_cat)
     
     x = rearrange(x, "n nh (h w) e -> n h w (nh e)", h=h, w=w, e=self.d_head)

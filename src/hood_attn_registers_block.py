@@ -51,8 +51,8 @@ class NeighbourhoodAttnRegisterBlock(Module):
     self.n_heads = d_model // d_head
     self.kernel_size = kernel_size
     self.d_model = d_model
-    self.qkv_proj = Linear(d_model, d_model * 3, bias=True)
-    self.out_proj = Linear(d_model, d_model, bias=True)
+    self.qkv_proj = Linear(d_model, d_model * 3, bias=False)
+    self.out_proj = Linear(d_model, d_model, bias=False)
     self.use_sdp = use_sdp
     self.scale = d_head**-.5
 

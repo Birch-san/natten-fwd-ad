@@ -31,9 +31,9 @@ class NattenRegistersBlock(Module):
     # permute head channels into a batch dim, and unbind k and v from the fused kv
     reg_k, reg_v = rearrange(reg_kv, "r (t nh e) -> t 1 nh r e", t=2, e=self.d_head)
     # expand singleton batch dim to explicitly equal batch dim used in self-attn
-    # reg_k, reg_v = (reg.expand(qkv.size(0), *reg.shape[1:]) for reg in (reg_k, reg_v))
+    reg_k, reg_v = (reg.expand(qkv.size(0), *reg.shape[1:]) for reg in (reg_k, reg_v))
     # repeat singleton batch dim over batch dim used in self-attn
-    reg_k, reg_v = (reg.repeat(qkv.size(0), *(1,)*(reg.ndim-1)) for reg in (reg_k, reg_v))
+    # reg_k, reg_v = (reg.repeat(qkv.size(0), *(1,)*(reg.ndim-1)) for reg in (reg_k, reg_v))
 
     q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh h w e", t=3, e=self.d_head)
     q = q / self.d_head**.5

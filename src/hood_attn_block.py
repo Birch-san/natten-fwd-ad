@@ -37,7 +37,7 @@ def make_neighbourhood_mask(kernel_size: Dimensions, canvas_size: Dimensions, fl
   return mask
 
 class NeighbourhoodAttnBlock(Module):
-  def __init__(self, d_model: int, d_head: int, kernel_size: int):
+  def __init__(self, d_model: int, d_head: int, kv_groups: int, kernel_size: int):
     """
     Pure-PyTorch implementation of neighbourhood attention.
     Uses global self-attention and a (very) complicated mask.
@@ -48,15 +48,26 @@ class NeighbourhoodAttnBlock(Module):
     """
     super().__init__()
     self.d_head = d_head
-    self.n_heads = d_model // d_head
+    self.q_heads = d_model // d_head
+    self.kv_groups = kv_groups
+    assert self.q_heads % kv_groups == 0
+    self.kv_heads = self.q_heads // kv_groups
     self.kernel_size = kernel_size
-    self.qkv_proj = Linear(d_model, d_model * 3, bias=False)
+    self.qkv_proj = Linear(d_model, self.d_head * (self.q_heads + 2*self.kv_heads), bias=False)
     self.out_proj = Linear(d_model, d_model, bias=False)
 
   def forward(self, x: FloatTensor) -> FloatTensor:
     _, h, w, _ = x.shape
     qkv = self.qkv_proj(x)
-    q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh (h w) e", t=3, e=self.d_head)
+    q, k, v = qkv.split((self.q_heads*self.d_head, *(self.kv_heads*self.d_head,)*2), -1)
+    q, k, v = (rearrange(p, "n h w (nh e) -> n nh (h w) e", e=self.d_head) for p in (q,k,v))
+    # TODO: should this be repeat_interleave? does it matter? I guess the best would be to match what Llama does?
+    # TODO: could we give each of Q,K,V a "group" dim?
+    #       Q  = (1, q_heads)
+    #       KV = (kv_groups, kv_heads)
+    #       could KV's group dim be created for free via expand()?
+    # for now I'll just do a repeat, but it'd be really nice if we could use expand…
+    k, v = (p.repeat(1, self.kv_groups, 1, 1) for p in (k, v))
     kernel_size=Dimensions(self.kernel_size, self.kernel_size)
     canvas_size=Dimensions(h, w)
     mask: BoolTensor = make_neighbourhood_mask(kernel_size, canvas_size, flatten_to_1d=True, device=x.device)

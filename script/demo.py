@@ -8,13 +8,13 @@ from src.hood_attn_block import NeighbourhoodAttnBlock
 device=torch.device('cuda')
 dtype=torch.bfloat16
 seed=42
-d_model=128
+d_model=384
 d_head=64
 kernel_size=13
 torch.manual_seed(seed)
-natten_block = NattenBlock(d_model, d_head=d_head, kernel_size=kernel_size).to(device=device, dtype=dtype)
+natten_block = NattenBlock(d_model, d_head=d_head, kv_groups=2, kernel_size=kernel_size).to(device=device, dtype=dtype)
 torch.manual_seed(seed)
-hood_block = NeighbourhoodAttnBlock(d_model, d_head=d_head, kernel_size=kernel_size).to(device=device, dtype=dtype)
+hood_block = NeighbourhoodAttnBlock(d_model, d_head=d_head, kv_groups=2, kernel_size=kernel_size).to(device=device, dtype=dtype)
 
 batch=2
 canvas_len=32

@@ -1,7 +1,7 @@
 import torch
 from torch import inference_mode, enable_grad
 import torch.autograd.forward_ad as fwAD
-from torch.backends.cuda import sdp_kernel
+from torch.nn.attention import SDPBackend, sdpa_kernel
 from src.natten_block import NattenBlock
 from src.hood_attn_block import NeighbourhoodAttnBlock
 
@@ -12,7 +12,8 @@ d_model=128
 d_head=64
 kernel_size=13
 torch.manual_seed(seed)
-natten_block = NattenBlock(d_model, d_head=d_head, kernel_size=kernel_size).to(device=device, dtype=dtype)
+# fused kernel doesn't support fwAD
+natten_block = NattenBlock(d_model, d_head=d_head, kernel_size=kernel_size, prefer_fused=False).to(device=device, dtype=dtype)
 torch.manual_seed(seed)
 hood_block = NeighbourhoodAttnBlock(d_model, d_head=d_head, kernel_size=kernel_size).to(device=device, dtype=dtype)
 
@@ -31,7 +32,7 @@ assert out_natt.allclose(out_hood, rtol=1e-5, atol=5e-3), "assertion failure ind
 print(f'NATTEN output matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')
 
 tangent = torch.randn([batch, canvas_len, canvas_len, d_model], device=device, dtype=dtype)
-with fwAD.dual_level(), enable_grad(), sdp_kernel(enable_math=True, enable_flash=False, enable_mem_efficient=False):
+with fwAD.dual_level(), enable_grad(), sdpa_kernel(SDPBackend.MATH):
   dual_primal = fwAD.make_dual(x, tangent)
   out_natt = natten_block(dual_primal)
   out_natt_prime = fwAD.unpack_dual(out_natt).tangent

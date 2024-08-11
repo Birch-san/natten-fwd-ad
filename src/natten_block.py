@@ -22,17 +22,15 @@ class NattenBlock(Module):
     if self.prefer_fused and natten.has_fused_na():
       from natten.functional import na2d
       q, k, v = rearrange(qkv, "n h w (t nh e) -> t n h w nh e", t=3, e=self.d_head)
-      q = q / self.d_head**.5
-      x = na2d(q, k, v, self.kernel_size, scale=1.0)
+      x = na2d(q, k, v, self.kernel_size, scale=self.d_head**-.5)
       x = rearrange(x, "n h w nh e -> n h w (nh e)")
     else:
-      from natten.functional import natten2dqk, natten2dav
-      # from src.natten_autograd import natten2dqk, natten2dav
+      from natten.functional import na2d_qk, na2d_av
       q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh h w e", t=3, e=self.d_head)
       q = q / self.d_head**.5
-      qk = natten2dqk(q, k, self.kernel_size, 1)
+      qk = na2d_qk(q, k, self.kernel_size, 1)
       a = qk.softmax(dim=-1)
-      x = natten2dav(a, v, self.kernel_size, 1)
+      x = na2d_av(a, v, self.kernel_size, 1)
       x = rearrange(x, "n nh h w e -> n h w (nh e)")
     x = self.out_proj(x)
     return x

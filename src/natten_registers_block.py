@@ -4,7 +4,7 @@ from torch.nn.functional import linear
 from einops import rearrange
 from typing import Optional
 
-from natten.functional import natten2dqk, natten2dav
+from natten.functional import na2d_qk, na2d_av
 
 # Simplifed version of
 # Katherine Crowson's NeighborhoodSelfAttentionBlock, MIT license
@@ -37,9 +37,9 @@ class NattenRegistersBlock(Module):
 
     q, k, v = rearrange(qkv, "n h w (t nh e) -> t n nh h w e", t=3, e=self.d_head)
     q = q / self.d_head**.5
-    qk = natten2dqk(q, k, self.kernel_size, 1, additional_keys=reg_k)
+    qk = na2d_qk(q, k, self.kernel_size, 1, additional_keys=reg_k)
     a = qk.softmax(dim=-1)
-    x = natten2dav(a, v, self.kernel_size, 1, additional_values=reg_v)
+    x = na2d_av(a, v, self.kernel_size, 1, additional_values=reg_v)
     x = rearrange(x, "n nh h w e -> n h w (nh e)")
     x = self.out_proj(x)
     return x

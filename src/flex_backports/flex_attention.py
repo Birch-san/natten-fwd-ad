@@ -165,8 +165,11 @@ def _ordered_to_dense(num_blocks_in_row, col_indices):
         valid_indices = torch.where(index_mask, kv_indices, num_cols)
 
         # set the values in 'a' to 1 where the indices are valid
-        dense_mask[row_indices, valid_indices] = 1
-        return dense_mask[:, :num_cols].contiguous()
+        # dense_mask[row_indices, valid_indices] = 1
+        # dense_mask[row_indices, valid_indices] = torch.tensor(1, device=device, dtype=dense_mask.dtype)
+        dense_mask[row_indices, valid_indices].copy_(1)
+        # return dense_mask[:, :num_cols].contiguous()
+        return dense_mask.narrow(-1, 0, num_cols).contiguous()
 
     create_dense_batched = create_dense_one
     for _ in range(len(batch_dims)):

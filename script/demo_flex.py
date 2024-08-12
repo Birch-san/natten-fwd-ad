@@ -47,7 +47,7 @@ rtol=1e-5
 atol=5e-3
 assert out_flex.allclose(out_hood, rtol=1e-5, atol=5e-3), "assertion failure indicates Flex Attn is not equivalent to masked sdpa"
 assert out_natt.allclose(out_hood, rtol=1e-5, atol=5e-3), "assertion failure indicates NATTEN is not equivalent to masked SDPA"
-print(f'NATTEN output matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')
+print(f'Flex and NATTEN outputs matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')
 
 tangent = torch.randn([batch, canvas_height, canvas_width, d_model], device=device, dtype=dtype)
 with fwAD.dual_level(), enable_grad(), sdpa_kernel(SDPBackend.MATH):
@@ -56,8 +56,11 @@ with fwAD.dual_level(), enable_grad(), sdpa_kernel(SDPBackend.MATH):
   out_natt_prime = fwAD.unpack_dual(out_natt).tangent
   out_hood = hood_block(dual_primal)
   out_hood_prime = fwAD.unpack_dual(out_hood).tangent
+  out_flex = hood_block(dual_primal)
+  out_flex_prime = fwAD.unpack_dual(out_flex).tangent
   # default rtol of allclose
   rtol=1e-5
   atol=1e-3
-  assert out_natt_prime.allclose(out_hood_prime, rtol=rtol, atol=atol), "assertion failure indicates fwAD implementations are not equivalent"
-  print(f'NATTEN fwAD output matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')
+  assert out_flex_prime.allclose(out_hood_prime, rtol=rtol, atol=atol), "assertion failure indicates Flex Attn is not equivalent to masked sdpa"
+  assert out_natt_prime.allclose(out_hood_prime, rtol=rtol, atol=atol), "assertion failure indicates NATTEN is not equivalent to masked sdpa"
+  print(f'Flex and NATTEN fwAD outputs matched pure-PyTorch implementation to within atol={atol}, rtol={rtol}')

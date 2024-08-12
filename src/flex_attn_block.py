@@ -3,8 +3,7 @@ from torch import FloatTensor, IntTensor, BoolTensor
 from torch.nn import Module, Linear
 from einops import rearrange
 
-from torch.nn.attention._flex_attention import _flex_attention as flex_attention
-from src.flex_backports.flex_attention import create_block_mask#, flex_attention
+from torch.nn.attention.flex_attention import flex_attention, create_block_mask
 
 @lru_cache
 def create_block_mask_cached(score_mod, B, H, M, N, device="cuda"):

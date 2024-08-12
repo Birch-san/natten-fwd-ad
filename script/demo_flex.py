@@ -3,7 +3,7 @@ from torch import inference_mode, enable_grad
 import torch.autograd.forward_ad as fwAD
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
-from src.flex_backports.flex_attention import flex_attention
+from torch.nn.attention.flex_attention import flex_attention
 from src.natten_block import NattenBlock
 from src.hood_attn_block import NeighbourhoodAttnBlock
 from src.flex_attn_block import FlexAttnBlock

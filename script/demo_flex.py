@@ -30,6 +30,7 @@ torch.manual_seed(seed)
 natten_block = NattenBlock(d_model, d_head=d_head, kernel_size=kernel_size, prefer_fused=False).to(device=device, dtype=dtype)
 torch.manual_seed(seed)
 hood_block = NeighbourhoodAttnBlock(d_model, d_head=d_head, kernel_size=kernel_size).to(device=device, dtype=dtype)
+torch.manual_seed(seed)
 flex_block = FlexAttnBlock(d_model, d_head=d_head, kernel_size=kernel_size).to(device=device, dtype=dtype)
 torch.manual_seed(seed)
 

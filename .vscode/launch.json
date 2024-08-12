@@ -2,17 +2,24 @@
   "configurations": [
     {
       "name": "Python: Demo",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "script.demo",
       "justMyCode": false
     },
     {
       "name": "Python: Demo registers",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "script.demo_registers",
       "justMyCode": false
-    }
+    },
+    {
+      "name": "Python: Demo FlexAttn",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "script.demo_flex",
+      "justMyCode": false
+    },
   ]
 }
